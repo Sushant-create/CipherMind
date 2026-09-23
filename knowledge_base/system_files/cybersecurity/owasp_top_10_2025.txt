@@ -1,0 +1,292 @@
+# A01:2025 - Broken Access Control
+
+## Overview and Description
+Access control enforces policy so that users can't act outside their intended permissions. When it fails, attackers can view or change data, or perform actions, that should be off-limits to them. Broken access control remains the #1 risk, showing up in every application tested. SSRF (Server-Side Request Forgery) is now folded into this category.
+Common vulnerabilities include:
+* Ignoring the principle of least privilege, so access is available to anyone instead of only the roles that need it.
+* Tampering with URLs, hidden fields, or API requests to get around access checks (parameter tampering, force browsing).
+* Viewing or editing another user's data by guessing or changing an identifier (IDOR).
+* APIs that lack access controls on POST, PUT, or DELETE actions.
+* Privilege escalation - acting as an unauthenticated user, or a regular user gaining admin-level access.
+* Tampering with tokens, cookies, or hidden fields (e.g., a JWT) to elevate privileges.
+* CORS misconfigurations that let untrusted origins call an API.
+* Guessing or force-browsing to pages meant only for authenticated or privileged users.
+
+## How to Prevent
+Access control only works when it's enforced in trusted server-side (or serverless) code that an attacker can't tamper with.
+* Deny access by default; only allow it for resources meant to be public.
+* Build access control checks once and reuse them everywhere, keeping CORS use to a minimum.
+* Enforce ownership models so users can only act on records they own, rather than any record.
+* Bake business-specific limits into the domain/data model itself.
+* Turn off directory listing, and keep metadata files (like .git) and backups out of web roots.
+* Log access-control failures and alert admins on repeated failures.
+* Rate-limit API and controller access to blunt automated attacks.
+* Invalidate session identifiers server-side on logout; keep stateless tokens short-lived, and use refresh tokens/OAuth revocation for longer-lived ones.
+* Use well-tested toolkits that provide simple, declarative access control rather than rolling your own.
+* Include access control checks in your unit and integration tests.
+
+## Example Attack Scenarios
+Scenario #1: The application pulls an account number straight from a URL parameter into a database query without checking that it belongs to the logged-in user.
+Example: https://example.com/app/accountInfo?acct=notmyacct
+
+Scenario #2: An admin-only page is reachable simply by guessing its URL (force browsing). If an unauthenticated or non-admin user can load it, that's a flaw.
+Example: https://example.com/app/admin_getInfo
+
+Scenario #3: An app hides its admin functionality only in front-end JavaScript. A user can't click their way to the admin endpoint in a browser, but a direct request from the command line reaches it anyway, since there's no server-side check.
+
+
+# A02:2025 - Security Misconfiguration
+
+## Overview and Description
+Security misconfiguration happens when a system, application, or cloud service is set up in a way that leaves it exposed. This category jumped from #5 to #2 in 2025 as software has become more configuration-driven (cloud, containers, feature flags, infrastructure-as-code).
+Signs an application may be vulnerable:
+* Missing hardening anywhere in the stack, or overly permissive cloud service permissions.
+* Unused features, ports, services, pages, accounts, or privileges left enabled.
+* Default accounts and passwords still active.
+* Verbose error handling that leaks stack traces or other sensitive details.
+* Security features on upgraded systems left disabled or improperly configured.
+* Backward-compatibility choices that weaken security.
+* Insecure default settings in servers, frameworks, libraries, or databases.
+* Missing or misconfigured security headers.
+
+## How to Prevent
+* Build a repeatable, largely automated hardening process so dev, QA, and production environments are configured identically (with different credentials per environment).
+* Keep the platform minimal - remove unused features, frameworks, samples, and documentation.
+* Review and update configurations as part of routine patch management, including cloud storage permissions (e.g., S3 buckets).
+* Use segmentation - containers, cloud security groups, or similar - to isolate components and tenants.
+* Send appropriate security headers/directives to clients.
+* Automate verification of configuration and settings across all environments; if that's not possible, review manually at least annually.
+* Use identity federation, short-lived credentials, or role-based access instead of embedding static secrets in code or pipelines.
+
+## Example Attack Scenarios
+Scenario #1: Sample applications shipped with a server aren't removed from production and contain known flaws, including an admin console with an unchanged default password, which an attacker uses to log in and take over.
+
+Scenario #2: Directory listing is left enabled. An attacker browses the directory, downloads compiled classes, decompiles them, and finds a serious access-control flaw in the recovered source.
+
+Scenario #3: The server is configured to return detailed error messages, including stack traces, which expose internal details or vulnerable component versions to users.
+
+Scenario #4: A cloud storage bucket is left open to the internet by default, exposing sensitive data stored inside it.
+
+
+# A03:2025 - Software Supply Chain Failures
+
+## Overview and Description
+This is a new, expanded category covering breakdowns or compromises anywhere in the process of building, distributing, or updating software, not just known-vulnerable components. It was the community survey's top pick, with half of respondents ranking it #1.
+You're likely at risk if:
+* You don't track versions of components you use, including transitive (nested) dependencies.
+* Software anywhere in your stack is unsupported, unpatched, or out of date.
+* You don't scan for vulnerabilities regularly or watch security bulletins.
+* You lack change management or tracking across your build/repository/artifact pipeline.
+* Access control and least privilege haven't been applied to every part of the supply chain.
+* No separation of duties exists - one person can write code and push it to production unchecked.
+* Components from untrusted sources can reach production.
+* Patching is slow, tied to infrequent change-control cycles.
+* Updated or patched libraries aren't tested for compatibility.
+* Your CI/CD pipeline is less secure than the systems it builds and deploys.
+
+## How to Prevent
+* Maintain a Software Bill of Materials (SBOM) for your whole application, including transitive dependencies.
+* Continuously inventory client- and server-side components and monitor CVE/NVD/OSV sources for new vulnerabilities; automate this with software composition analysis tools.
+* Only pull components from official, trusted sources over secure links, and prefer signed packages.
+* Choose dependency versions deliberately and upgrade only when needed; watch for unmaintained libraries and plan a migration or virtual patch if a fix isn't coming.
+* Keep CI/CD, IDEs, and other developer tooling updated, and roll out changes in stages rather than all at once.
+* Track changes across CI/CD settings, repositories, sandboxes, SBOM tooling, logging systems, third-party integrations, artifact repositories, and container registries.
+* Harden code repositories, developer workstations, build servers/CI/CD (with separation of duties, signed builds, tamper-evident logs), and infrastructure-as-code.
+
+## Example Attack Scenarios
+Scenario #1: A trusted vendor's own systems are compromised with malware, which then spreads to everyone who installs the resulting update, as happened in the 2019 SolarWinds breach, affecting roughly 18,000 organizations.
+
+Scenario #2: A compromised vendor update behaves maliciously only under specific conditions, the mechanism behind the 2025 theft of roughly $1.5 billion from Bybit, traced to compromised wallet software that activated only when a targeted wallet was used.
+
+Scenario #3: A self-propagating worm spreads through the npm ecosystem by seeding malicious versions of popular packages with a post-install script that harvests secrets and reuses stolen npm tokens to infect further packages, eventually reaching hundreds of package versions before being stopped.
+
+Scenario #4: Components run with the same privileges as the application itself, so a flaw in a widely used library can have serious impact, as with a Struts 2 remote-code-execution flaw and the Log4j "Log4Shell" vulnerability, both linked to major breaches and attack campaigns.
+
+
+# A04:2025 - Cryptographic Failures
+
+## Overview and Description
+This category covers missing, weak, or misused cryptography, including leaked keys, the kind of failure that often leads to exposure of sensitive data or full system compromise. It dropped two spots, from #2 to #4.
+Questions to ask about any sensitive data (passwords, card numbers, health records, personal data, trade secrets):
+* Are outdated or weak algorithms/protocols used anywhere, even by default?
+* Are keys default, weak, reused, or poorly managed and rotated? Are they checked into source control?
+* Is encryption not enforced (e.g. missing security headers)?
+* Is the server certificate and trust chain properly validated?
+* Are initialization vectors reused or predictable, or is an insecure mode like ECB used where authenticated encryption should be?
+* Are passwords used directly as cryptographic keys instead of through a proper key-derivation function?
+* Is randomness generated without meeting cryptographic requirements?
+* Are deprecated hashes like MD5 or SHA1 still in use?
+* Can padding-oracle-style side channels leak information, or can the algorithm be downgraded or bypassed?
+
+## How to Prevent
+* Classify data by sensitivity and only keep what you actually need; data you don't retain can't be stolen.
+* Store the most sensitive keys in a hardware or cloud HSM, and use well-trusted crypto implementations.
+* Encrypt sensitive data at rest and all data in transit, using TLS 1.2+ with forward secrecy, dropping CBC ciphers, and enforcing HSTS.
+* Disable caching of responses containing sensitive data, including in CDNs and application caches.
+* Avoid unencrypted protocols like FTP or plain SMTP for confidential data.
+* Hash passwords with a strong, salted, adaptive algorithm (Argon2, scrypt, PBKDF2-HMAC-SHA-512, or bcrypt for legacy systems).
+* Use cryptographically secure random number generation for keys and initialization vectors, and never reuse an IV with a fixed key.
+* Always use authenticated encryption rather than encryption alone.
+* Avoid deprecated functions and padding schemes (MD5, SHA1, CBC mode, PKCS#1 v1.5).
+* Have configurations reviewed by security specialists or dedicated tooling.
+* Start preparing for post-quantum cryptography now, aiming to have high-risk systems ready well before 2030.
+
+## Example Attack Scenarios
+Scenario #1: A site doesn't enforce TLS everywhere or supports weak encryption. An attacker on an insecure network downgrades a connection from HTTPS to HTTP, intercepts it, and steals a session cookie to hijack the victim's authenticated session, or tampers with transmitted data outright, such as the destination of a money transfer.
+
+Scenario #2: A password database stores unsalted or simply hashed passwords. A file-upload flaw lets an attacker exfiltrate it, and the unsalted hashes are then cracked en masse with a precomputed rainbow table, or with GPU brute-forcing, even if salted, if the hash function is fast.
+
+
+# A05:2025 - Injection
+
+## Overview and Description
+Injection happens when untrusted input reaches an interpreter (database, OS shell, browser, etc.) and gets executed as part of a command instead of being treated as plain data. It fell from #3 to #5, though it remains one of the most tested and most CVE-heavy categories, covering everything from high-frequency, lower-impact Cross-Site Scripting to lower-frequency, higher-impact SQL Injection.
+An application is at risk when:
+* User input isn't validated, filtered, or sanitized.
+* Dynamic queries or non-parameterized calls are built without context-aware escaping.
+* Unsanitized input reaches ORM search parameters and pulls extra records.
+* Hostile data is concatenated directly into a query, command, or stored procedure.
+Common variants include SQL, NoSQL, OS command, ORM, LDAP, and expression-language injection, the underlying issue is the same across all of them. A related, separately tracked issue is prompt injection against LLMs, covered in OWASP's dedicated GenAI Top 10.
+
+## How to Prevent
+* Prefer a safe API that avoids the interpreter entirely - parameterized queries or an ORM - over building queries by hand.
+* Note that even parameterized stored procedures can still be vulnerable if they concatenate queries and data internally.
+* Where dynamic queries can't be avoided, use strict, positive server-side input validation and escape special characters with the interpreter's specific syntax, keeping in mind that structural elements like table or column names can't be escaped this way.
+* Treat manual escaping as a fallback, not a robust primary defense, since it's easy to get wrong as systems change.
+
+## Example Attack Scenarios
+Scenario #1: An application builds a SQL query by concatenating an id parameter straight from the URL.
+Example: http://example.com/app/accountView?id=' OR '1'='1
+
+Scenario #2: A query built with an ORM query language (like HQL) still concatenates user input into the filter condition, so an attacker can supply a value that bypasses the intended filter and returns all records, even though the framework offers safer alternatives.
+
+Scenario #3: User input is passed straight into an OS command (e.g., building an nslookup command from a "domain" parameter).
+Example: example.com; cat /etc/passwd
+
+
+# A06:2025 - Insecure Design
+
+## Overview and Description
+Insecure design covers missing or ineffective security controls at the architecture and business-logic level, as distinct from implementation bugs, a perfectly-coded implementation of an insecure design is still insecure. It slid from #4 to #6 as the industry has improved at threat modeling. Three pillars support secure design: gathering requirements and planning resources properly, building the design itself with security baked in, and running a secure development lifecycle around it.
+
+## How to Prevent
+* Run a secure development lifecycle with AppSec professionals involved in evaluating and designing controls.
+* Maintain a library of secure design patterns or "paved road" components teams can reuse.
+* Threat-model critical flows - authentication, access control, business logic - and use that process to build security awareness across the team.
+* Bake security requirements into user stories, and add plausibility checks at every application tier, front-end through back-end.
+* Write tests (including misuse-case tests) that confirm critical flows resist the threats identified in modeling.
+* Segregate application tiers and tenants appropriately based on exposure and protection needs.
+
+## Example Attack Scenarios
+Scenario #1: A password-recovery flow relies on security questions as proof of identity, a design NIST and OWASP guidance both advise against, since answers often aren't truly secret. The fix is to redesign the recovery flow rather than patch the questions.
+
+Scenario #2: A cinema chain's booking system caps group discounts at fifteen tickets before requiring a deposit. Without threat modeling the business logic, an attacker could book hundreds of seats across every showing in a handful of requests, causing major revenue loss.
+
+Scenario #3: A retailer's site has no defenses against bots that snap up limited-stock, high-demand products (like graphics cards) within seconds of release, to resell at a markup, generating bad publicity and customer frustration that better anti-bot design and purchase-timing rules could have prevented.
+
+
+# A07:2025 - Authentication Failures
+
+## Overview and Description
+This category (renamed from "Identification and Authentication Failures") covers cases where an attacker manages to get an application to treat them as a legitimate, authenticated user. It holds steady at #7.
+Signs of weakness include an application that:
+* Allows credential stuffing or "hybrid" password-spray attacks, where breached credentials are tried with small variations (e.g., incrementing a year in the password).
+* Doesn't throttle brute-force or scripted login attempts.
+* Accepts default, weak, or well-known passwords.
+* Lets new accounts be created with already-breached credentials.
+* Relies on weak recovery flows, like security questions.
+* Stores passwords in plaintext, encrypted (rather than hashed), or weakly hashed form.
+* Lacks multi-factor authentication, or falls back to weak MFA alternatives.
+* Exposes session IDs in URLs or other client-visible locations, reuses the same session ID after login, or fails to invalidate sessions/tokens on logout or timeout.
+
+## How to Prevent
+* Enforce multi-factor authentication wherever possible.
+* Encourage password manager use, and never ship default credentials.
+* Reject weak passwords (e.g., against a list of the 10,000 worst) and check new/changed passwords against known-breach databases.
+* Follow NIST 800-63B guidance on password length, complexity, and rotation - don't force periodic rotation absent evidence of a breach.
+* Use identical, generic responses for registration/recovery/login failures to prevent account enumeration.
+* Rate-limit and delay failed logins without creating a denial-of-service risk; log failures and alert on suspected attacks.
+* Use a secure, server-side session manager that issues a fresh, high-entropy session ID after login, keeps it out of URLs, and invalidates it on logout and timeout.
+* Where possible, buy a well-tested identity/authentication system rather than building your own, and validate token claims (audience, issuer, scope) properly.
+
+## Example Attack Scenarios
+Scenario #1: Attackers use lists of previously breached username/password pairs (credential stuffing), sometimes incrementing details like a year or number in the password to guess variations users are likely to have chosen. Without defenses against automated login attempts, the login form effectively becomes a way to test which credentials are valid.
+
+Scenario #2: Password rotation and complexity rules, once considered best practice, tend to push users toward weak or reused passwords, which is why NIST 800-63 and OWASP now recommend dropping them in favor of MFA.
+
+Scenario #3: A user on a public computer closes the browser tab instead of logging out, or a single sign-on session isn't properly closed across all connected apps when the user logs out of one of them, leaving a window for someone else using the same device to access the still-authenticated session.
+
+
+# A08:2025 - Software or Data Integrity Failures
+
+## Overview and Description
+This category covers code, infrastructure, or data that's trusted without verifying it hasn't been tampered with, for example, relying on plugins or CDNs from untrusted sources, an insecure CI/CD pipeline that doesn't verify what it pulls in, auto-update mechanisms that install unsigned updates, or deserializing data an attacker could have modified. It holds at #8.
+
+## How to Prevent
+* Verify software and data with digital signatures or similar mechanisms before trusting them.
+* Pull dependencies only from trusted repositories, and consider hosting a vetted internal mirror for higher-risk environments.
+* Require review of code and configuration changes before they can enter the pipeline.
+* Segregate, configure, and control access to your CI/CD pipeline to protect build and deploy integrity.
+* Never deserialize unsigned or unencrypted data from untrusted clients without an integrity check.
+
+## Example Attack Scenarios
+Scenario #1: A company points a subdomain at a third-party support provider for convenience. Because cookies (including authentication cookies) for the parent domain get sent to that subdomain, anyone with access to the support provider's infrastructure can steal those cookies and hijack user sessions.
+
+Scenario #2: Devices like home routers or set-top boxes accept firmware updates without verifying a signature, making unsigned firmware a growing target, and one that's hard to fix retroactively once older versions are out in the field.
+
+Scenario #3: Unable to find an updated package through the normal trusted registry, a developer downloads it from an unofficial website instead. With no signature to verify, the unofficial package turns out to contain malicious code.
+
+Scenario #4: A web application serializes user session state and passes it back and forth with each request to stay "stateless." An attacker recognizes the serialization format, uses an off-the-shelf deserialization scanning tool, and achieves remote code execution on the server.
+
+
+# A09:2025 - Security Logging & Alerting Failures
+
+## Overview and Description
+Without logging, breaches can't be detected; without alerting, they can't be responded to quickly. This category (renamed slightly to emphasize alerting, not just logging) holds at #9 and is chronically underrepresented in test data, but consistently voted a top concern by practitioners.
+Warning signs include:
+* Auditable events (logins, failed logins, high-value transactions) logged inconsistently or not at all.
+* Vague or missing log messages for warnings and errors.
+* Logs that aren't protected from tampering, aren't monitored, or are only stored locally without backup.
+* No clear alerting thresholds or escalation process, or alerts that go unreviewed.
+* Penetration tests and scanners that don't trigger any alerts.
+* Sensitive data (PII, PHI) logged where it shouldn't be, or logs visible to users/attackers.
+* Log data that isn't encoded, opening the door to injection attacks against the logging system itself.
+* So many false positives that real alerts get missed.
+
+## How to Prevent
+* Log login attempts, access-control failures, and server-side validation failures with enough context for later forensic review.
+* Log every security-relevant action, whether it succeeds or fails, in a format your log management tooling can consume.
+* Encode log data correctly to prevent injection into the logging system.
+* Give transactions a tamper-resistant audit trail (e.g., append-only tables), and roll back and fail closed on any transaction that errors out partway.
+* Build clear alerting playbooks so suspicious activity gets a fast, defined response from your security team.
+* Consider "honeytokens" - fake credentials or data that should never be touched in normal use - so any access to them is a near-certain signal of an attacker.
+* Adopt an incident response plan (such as NIST 800-61) and train developers to recognize what an attack looks like.
+
+## Example Attack Scenarios
+Scenario #1: A children's health plan provider's site had no logging or monitoring in place, so a breach exposing millions of children's health records went undetected, potentially for years, until an outside party reported it.
+
+Scenario #2: A major airline suffered a breach exposing a decade's worth of passenger data, including passport and payment details, at a third-party cloud host, which only notified the airline after the fact.
+
+Scenario #3: Another major airline was fined tens of millions of pounds under GDPR after attackers exploited payment application vulnerabilities to harvest hundreds of thousands of customer payment records.
+
+
+# A10:2025 - Mishandling of Exceptional Conditions
+
+## Overview and Description
+A brand-new category for 2025, covering software that fails to prevent, detect, or properly respond to unusual or unexpected conditions, leading to crashes, unpredictable behavior, or exploitable vulnerabilities. It can stem from missing input validation, error handling done too late or inconsistently, or unhandled exceptions that leave a system in an unknown state.
+Mishandled exceptional conditions can lead to logic bugs, overflows, race conditions, fraudulent transactions, or issues with memory, timing, authentication, or authorization, any of which can affect confidentiality, availability, or integrity.
+
+## How to Prevent
+* Plan for failure: catch every foreseeable error at the point it occurs and handle it meaningfully - inform the user clearly, log the event, and alert if warranted.
+* Keep a global exception handler as a safety net for anything you didn't anticipate.
+* Roll back and fail closed on any multi-step transaction interrupted partway through, rather than trying to resume it.
+* Add rate limiting, resource quotas, and throttling wherever practical, since unlimited resource use invites denial-of-service and runaway costs.
+* Centralize error handling, logging, monitoring, and alerting in one place rather than scattering it across the codebase.
+* Include this in your threat modeling, code review, and stress/penetration testing.
+
+## Example Attack Scenarios
+Scenario #1: A file-upload feature catches exceptions but never releases the resources tied to each failed attempt, so repeated failures gradually exhaust available resources, a denial-of-service condition.
+
+Scenario #2: A database error is returned to the user in full detail rather than a generic message. An attacker deliberately triggers more errors to harvest the leaked internal details and refine a SQL injection attack.
+
+Scenario #3: A multi-step financial transaction (debit, credit, log) is interrupted mid-way by a network disruption. Because the system doesn't roll back the whole transaction on failure, an attacker can exploit the gap to drain an account or trigger a race condition that duplicates a transfer.
