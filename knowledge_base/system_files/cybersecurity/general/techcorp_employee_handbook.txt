@@ -1,0 +1,92 @@
+# TechCorp Employee Handbook 2026
+
+Welcome to TechCorp. This handbook outlines the policies, expectations, and benefits that apply to all full-time and part-time employees. Please read it carefully and reach out to People Operations (people-ops@techcorp.example.com) with any questions.
+
+## Remote Work and Telecommuting Policy
+
+TechCorp operates on a **hybrid-first model** designed to balance flexibility with in-person collaboration.
+
+**Eligibility and Schedule**
+- Employees in Engineering, Product, Design, and Support are eligible for hybrid work upon completion of their 30-day onboarding period.
+- Standard hybrid schedule: a minimum of **2 anchor days per week** (Tuesday and Thursday) spent at the employee's home office location, with the remaining days flexible between remote and office work.
+- Fully remote arrangements may be approved by a department VP for roles where in-person presence is not business-critical; requests are submitted via the "Remote Work Exception" form in Workday.
+
+**Home Office Requirements**
+- Employees must maintain a reliable internet connection of at least 50 Mbps download / 10 Mbps upload.
+- TechCorp provides a one-time $500 home office stipend and an annual $150 equipment refresh allowance.
+- Employees working remotely must be reachable during core hours (see "Core Working Hours" section) via Slack and video conferencing.
+
+**International and Location Changes**
+- Employees relocating to a new state or country must notify People Operations at least 30 days in advance due to tax, payroll, and legal compliance requirements.
+- TechCorp does not currently support permanent remote work outside of the United States, Canada, and the United Kingdom.
+
+**Office Access**
+- Badge access to TechCorp offices (San Francisco, Austin, and Toronto) remains active for all employees regardless of remote status.
+- Hot-desk reservations can be made through the OfficeSpace app up to 2 weeks in advance.
+
+## Paid Time Off (PTO) and Leave
+
+**Vacation and Discretionary PTO**
+- Full-time employees accrue **20 days of PTO per year**, front-loaded on January 1st for employees hired before October 1 of the prior year; new hires accrue on a prorated monthly basis.
+- Up to **5 unused PTO days** may be carried over into the following calendar year; any remaining balance is forfeited on January 31.
+- PTO requests should be submitted in Workday at least 5 business days in advance where possible, and require manager approval.
+
+**Sick Leave**
+- Employees receive **10 paid sick days per year**, separate from discretionary PTO, for personal illness, medical appointments, or caring for an immediate family member.
+- No documentation is required for absences of 2 days or fewer; a doctor's note is required for absences of 3 or more consecutive days.
+
+**Company Holidays**
+- TechCorp observes 11 paid company holidays annually, including a company-wide **Winter Break** between December 24 and January 1.
+
+**Parental Leave**
+- Birthing parents are eligible for **16 weeks of paid parental leave**; non-birthing parents and adoptive parents are eligible for **10 weeks of paid leave**.
+- Parental leave must begin within 6 months of the birth, adoption, or foster placement date and can be taken continuously or split into two blocks.
+
+**Bereavement and Jury Duty**
+- Employees are entitled to **5 paid bereavement days** for the loss of an immediate family member and **3 paid days** for extended family.
+- TechCorp provides full pay for up to 10 business days of jury duty service, with proof of summons.
+
+**Leave of Absence**
+- Extended medical, family (FMLA), or personal leaves of absence are coordinated through People Operations and TechCorp's third-party leave administrator, and may run concurrently with applicable state or federal leave programs.
+
+## IT Security and Device Management
+
+**Company-Issued Devices**
+- All employees are issued a company-managed laptop enrolled in TechCorp's Mobile Device Management (MDM) platform. Personal devices may not be used to access production systems, source code repositories, or customer data.
+- Devices must have disk encryption (FileVault/BitLocker), automatic screen lock after 5 minutes of inactivity, and endpoint detection software active at all times.
+
+**Authentication and Access**
+- Multi-factor authentication (MFA) is mandatory for all corporate accounts, including email, VPN, and internal tools. SMS-based MFA is discouraged in favor of an authenticator app or hardware security key.
+- Access to production systems and customer data follows the principle of least privilege and requires manager plus Security team approval, reviewed quarterly.
+- Shared credentials are strictly prohibited; all system access must be tied to an individual's named account.
+
+**Data Handling**
+- Confidential and customer data must never be stored on personal cloud storage (e.g., personal Google Drive, Dropbox) or transmitted through unapproved messaging apps.
+- Approved storage and collaboration tools are limited to the corporate Google Workspace and Slack instances.
+- Employees must report any lost or stolen device to the IT Security team within **1 hour of discovery** by emailing security-incidents@techcorp.example.com or calling the 24/7 IT hotline.
+
+**Acceptable Use and Software**
+- Only software approved through the IT Service Catalog may be installed on company devices; requests for new software go through a lightweight approval workflow in the IT helpdesk portal.
+- Use of public Wi-Fi requires connection through the TechCorp VPN client at all times.
+
+**Security Training**
+- All employees must complete annual security awareness training and phishing simulation exercises; failure to complete training within 30 days of assignment may result in suspension of system access.
+
+## Core Working Hours and Communication
+
+**Core Hours**
+- TechCorp designates **10:00 AM to 3:00 PM (employee's local time zone)** as core collaboration hours during which employees are expected to be available for meetings and real-time communication.
+- Outside of core hours, employees may structure their schedule flexibly to total a standard 40-hour work week, subject to manager and team norms.
+
+**Communication Expectations**
+- Slack is the primary tool for day-to-day communication; employees are expected to respond to direct messages within core hours within approximately 2 hours, absent a status indicating focus time or unavailability.
+- Email is reserved for formal, external, or documentation-heavy communication rather than real-time discussion.
+- Employees are encouraged to set explicit "Focus Time" or "Do Not Disturb" statuses to protect deep-work blocks, and teams are expected to respect these signals.
+
+**Meetings**
+- Default meeting length is 25 or 50 minutes (rather than 30/60) to allow transition time between calls.
+- Meetings involving more than 5 people should include a written agenda circulated at least 24 hours in advance.
+- "No-meeting Wednesdays" are observed company-wide to preserve uninterrupted work time, except for customer-facing or time-sensitive calls.
+
+**Time Zone Coverage**
+- Given TechCorp's distributed workforce across US, Canadian, and UK offices, teams spanning multiple time zones are expected to rotate meeting times to distribute scheduling burden fairly rather than defaulting to a single region's convenience.

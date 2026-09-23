@@ -1,0 +1,220 @@
+# Engineering Team Git Standards
+
+This document defines the branching model, commit conventions, pull request requirements, and conflict resolution practices for all repositories owned by the engineering organization. Consistency across teams reduces onboarding friction, simplifies release automation, and keeps history readable.
+
+## Branching Strategy (Main, Develop, Feature, Hotfix)
+
+We follow a **trunk-based-leaning Git Flow variant** with four core branch types.
+
+**`main`**
+- Always reflects production. Every commit on `main` corresponds to a deployed release and is tagged with a semantic version.
+- Direct pushes are disabled; the only way into `main` is via an approved PR from `develop` (for scheduled releases) or a `hotfix/*` branch (for emergencies).
+
+**`develop`**
+- The integration branch for the next release. All completed feature work merges here first.
+- Continuous integration runs the full test suite on every merge into `develop`.
+- Deployed automatically to the staging environment.
+
+**`feature/*`**
+- Cut from `develop` for all new feature work, non-urgent bug fixes, and refactors.
+- Naming convention: `feature/<ticket-id>-<short-description>`, e.g. `feature/ENG-1423-oauth-refresh-token`.
+
+```bash
+git checkout develop
+git pull origin develop
+git checkout -b feature/ENG-1423-oauth-refresh-token
+```
+
+- Feature branches should be short-lived (target: merged within 3-5 business days). Long-running branches should be broken into smaller, independently mergeable PRs behind a feature flag if needed.
+- Rebase onto `develop` regularly to avoid drift:
+
+```bash
+git fetch origin
+git rebase origin/develop
+```
+
+**`hotfix/*`**
+- Cut directly from `main` to address production incidents that cannot wait for the normal release cycle.
+- Naming convention: `hotfix/<ticket-id>-<short-description>`, e.g. `hotfix/ENG-1501-auth-token-leak`.
+
+```bash
+git checkout main
+git pull origin main
+git checkout -b hotfix/ENG-1501-auth-token-leak
+```
+
+- Once resolved, a hotfix is merged into **both** `main` (for immediate release) and `develop` (so the fix isn't lost on the next regular release):
+
+```bash
+git checkout main
+git merge --no-ff hotfix/ENG-1501-auth-token-leak
+git tag -a v2.4.1 -m "Hotfix: auth token leak"
+git push origin main --tags
+
+git checkout develop
+git merge --no-ff hotfix/ENG-1501-auth-token-leak
+git push origin develop
+```
+
+**Release branches (`release/*`)** — used for larger releases requiring a stabilization window:
+- Cut from `develop` when feature-complete for the release; only bug fixes are permitted on the release branch, no new features.
+- Merged into both `main` and `develop` upon release, mirroring the hotfix pattern.
+
+## Commit Message Conventions (Semantic Commits)
+
+All commits follow the **Conventional Commits** specification:
+
+```
+<type>(<scope>): <short summary>
+
+<optional body>
+
+<optional footer(s)>
+```
+
+**Allowed types:**
+
+| Type | Use Case |
+|---|---|
+| `feat` | A new feature |
+| `fix` | A bug fix |
+| `refactor` | Code change that neither fixes a bug nor adds a feature |
+| `perf` | Performance improvement |
+| `test` | Adding or correcting tests |
+| `docs` | Documentation only changes |
+| `chore` | Build process, tooling, or dependency updates |
+| `ci` | Changes to CI/CD configuration |
+| `revert` | Reverts a previous commit |
+
+**Examples:**
+
+```
+feat(auth): add refresh token rotation on login
+
+fix(billing): correct off-by-one error in prorated invoice calculation
+
+Invoices generated mid-cycle were charging one extra day due to
+inclusive date range comparison. Switched to exclusive end date.
+
+Fixes ENG-1489
+
+refactor(api): extract pagination logic into shared middleware
+
+chore(deps): bump lodash from 4.17.19 to 4.17.21
+```
+
+**Breaking changes** are flagged with a `!` after the type/scope and a `BREAKING CHANGE:` footer:
+
+```
+feat(api)!: remove deprecated /v1/users endpoint
+
+BREAKING CHANGE: /v1/users is removed. Clients must migrate to /v2/users,
+which requires an additional `tenant_id` query parameter.
+```
+
+**Rules:**
+- Subject line: imperative mood ("add," not "added" or "adds"), no period at the end, 50 characters or fewer where practical.
+- Body wrapped at 72 characters, explaining *why* the change was made, not just *what* changed (the diff already shows what).
+- Reference the ticket ID in the footer (`Fixes ENG-1489`, `Relates-to ENG-1502`) rather than the subject line, to keep subjects clean.
+- Squash-merge feature branches into a single semantic commit on `develop` unless the intermediate history is independently valuable (rare).
+
+## Pull Request (PR) Requirements
+
+**Before opening a PR:**
+- Rebase onto the latest target branch and resolve conflicts locally.
+- Run the full local test suite and linter:
+
+```bash
+npm run lint
+npm run test
+```
+
+- Self-review the diff for debug statements, commented-out code, and stray console logs.
+
+**PR description must include:**
+1. **Summary** — what changed and why, linked to the relevant ticket.
+2. **Type of change** — feature, fix, refactor, breaking change, etc.
+3. **Testing performed** — unit tests added, manual QA steps, screenshots/recordings for UI changes.
+4. **Rollback plan** — for anything touching production-critical paths (payments, auth, data migrations).
+
+**Review requirements:**
+- Minimum **2 approvals** for changes to `main`, `develop`, or shared libraries; **1 approval** for `feature/*` branches merging into `develop` on smaller teams.
+- At least one approver must be a designated code owner for the affected directory (enforced via `CODEOWNERS`).
+- All CI checks (tests, lint, type-check, security scan) must pass before merge — no merging with a red pipeline, even with approvals.
+- PRs open for more than 10 business days without activity are automatically flagged stale and should be closed or split into smaller units.
+
+**Merge strategy:**
+- `feature/*` → `develop`: squash merge, using the PR title as the final semantic commit message.
+- `release/*` or `hotfix/*` → `main`: merge commit (`--no-ff`) to preserve a clear release history and enable clean reverts.
+
+```bash
+git checkout develop
+git merge --squash feature/ENG-1423-oauth-refresh-token
+git commit -m "feat(auth): add refresh token rotation on login"
+```
+
+**PR size guidance:**
+- Target under 400 lines of diff (excluding generated files/lockfiles). Larger changes should be split into a stacked series of PRs with clear dependency ordering, or gated behind a feature flag and merged incrementally.
+
+## Merge Conflict Resolution
+
+**General principle:** Conflicts should be resolved on the *feature* branch by rebasing onto the target, not by merging the target into the feature branch, to keep history linear.
+
+```bash
+git checkout feature/ENG-1423-oauth-refresh-token
+git fetch origin
+git rebase origin/develop
+```
+
+**When a conflict occurs during rebase:**
+
+```bash
+# Git will pause and mark conflicted files
+git status
+
+# Open each conflicted file and resolve the markers:
+# <<<<<<< HEAD
+# (incoming change from develop)
+# =======
+# (your change)
+# >>>>>>> feature/ENG-1423-oauth-refresh-token
+
+git add <resolved-file>
+git rebase --continue
+```
+
+- If a rebase becomes too tangled (e.g., conflicts on every commit in a long-lived branch), abort and use an interactive rebase to squash first, then retry:
+
+```bash
+git rebase --abort
+git rebase -i origin/develop   # squash into fewer commits, then re-run the rebase
+```
+
+**Conflict ownership:**
+- The engineer who owns the feature branch is responsible for resolving conflicts, not the reviewer, since they have full context on intent.
+- For conflicts touching code outside your own change (e.g., a shared utility both branches modified), tag the other author directly in Slack or as a PR comment rather than guessing at intent.
+
+**Force-push safety:**
+- After a rebase, force-pushing is required to update the remote feature branch. Always use `--force-with-lease` instead of `--force` to avoid overwriting a teammate's concurrent pushes:
+
+```bash
+git push origin feature/ENG-1423-oauth-refresh-token --force-with-lease
+```
+
+**Post-resolution verification:**
+- Never assume a conflict resolution compiles or passes tests just because Git accepted it. Re-run the full test suite locally after any conflict resolution, before pushing:
+
+```bash
+npm run test
+```
+
+- For conflicts in generated files (lockfiles, build artifacts), regenerate rather than hand-merge:
+
+```bash
+rm package-lock.json
+npm install
+git add package-lock.json
+```
+
+**Escalation:**
+- If a conflict involves a fundamental design disagreement (e.g., two branches implementing incompatible approaches to the same feature), pause and resolve via a short synchronous discussion or architecture review rather than forcing a line-by-line merge.
