@@ -38,8 +38,7 @@ CipherMind has successfully passed a rigorous, adversarial quality assurance mat
 
 ### 1. Clone the Repository
 ```bash
-git clone [https://github.com/shriyashakhil4/CipherMind.git](https://github.com/shriyashakhil4/CipherMind.git)
-cd CipherMind
+git clone (https://github.com/Sushant-create/CipherMind)
 
 ---
 
