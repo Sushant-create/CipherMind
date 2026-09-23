@@ -1,0 +1,2 @@
+Git Merge Conflict Guidelines:
+When encountering a merge conflict, you can cancel the operation and return to the prior state using `git merge --abort`. To resolve conflicts manually, open the affected file and locate the conflict markers `<<<<<<<`, `=======`, and `>>>>>>>`. Delete the markers, keep the desired text, and run `git add <filename>` followed by `git commit` to finalize. To avoid conflicts in the future, best practices include pulling the latest changes frequently (`git pull origin main`), making small and frequent commits, and integrating changes often.
